@@ -12,11 +12,8 @@
 //system calls: fork, execvp, wait, open, dup2, signal, kill, and alarm.
 
 pid_t pid;
-int sig=-2;
 void alarm_handler(int sig){
-    sig = sig;
     kill(pid,SIGKILL);
-    printf("killed with signal %d\n", sig);
 }
 
 //using execvp to execute sh.file
@@ -43,30 +40,44 @@ static int childProcess(int count,int timeout,char* argv[]){
     }
 
     int status;
+    int exitCode;
+    int signal;
     waitpid(pid,&status,0);
-    status = WIFEXITED(status)?WEXITSTATUS(status):255;
-    if(status!=255)printf("exit code %d\n", status);
+
+    if(WIFEXITED(status)){
+        exitCode = WEXITSTATUS(status);
+        printf("exit code %d\n", exitCode);
+    }
+    else if(WIFSIGNALED(status)){
+        signal = WTERMSIG(status);
+        exitCode = 255;
+        printf("killed with signal %d\n",signal);
+    }
+
     fflush(stdout);
 
     //restore stdout
     dup2(stdoutCode, STDOUT_FILENO);
     close(fd);
-    return status;
+    return exitCode;
 }
 
 int main(int argc, char *argv[]) {
-    int tries = 0;
-    int timeout = 0;
+    int tries = -1;
+    int timeout = -1;
     int count =0;
-    //invoke withe the wrong number of arguments
-    if (argc < 4) {
+
+    if(argc >=4){
+        tries = atoi(argv[1]);
+        timeout = atoi(argv[2]);
+    }
+    if (argc <4 || tries ==0 || timeout ==0) {
         printf("%s", "USAGE: ./unflake max_tries max_timeout test_command args...\n");
         printf("max_tries - must be greater than or equal to 1\n");
         printf("max_timeout - number of seconds greater than or equal to 1\n");
         exit(1);
     }
-    tries = atoi(argv[1]);
-    timeout = atoi(argv[2]);
+
     int statusCode=-1;
 
 
